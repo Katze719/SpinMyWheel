@@ -1,156 +1,194 @@
 <script lang="ts">
-  import { invoke } from "@tauri-apps/api/core";
+  const SEGMENT_COLORS = [
+    "#e21b3c",
+    "#1368ce",
+    "#d89e00",
+    "#26890c",
+    "#e84a5f",
+    "#1a67a3",
+    "#f0a32e",
+    "#2d9d78",
+    "#c73659",
+    "#4a90d9",
+    "#e8c547",
+    "#3db88a",
+  ];
 
-  let name = $state("");
-  let greetMsg = $state("");
+  let entries = $state<string[]>([]);
+  let newEntry = $state("");
+  let isSpinning = $state(false);
+  let winner = $state<string | null>(null);
+  let rotation = $state(0);
+  let spinTransition = $state("");
+  let wheelEl = $state<SVGSVGElement | null>(null);
 
-  async function greet(event: Event) {
-    event.preventDefault();
-    // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-    greetMsg = await invoke("greet", { name });
+  function addEntry() {
+    const name = newEntry.trim();
+    if (name && !entries.includes(name)) {
+      entries = [...entries, name];
+      newEntry = "";
+      winner = null;
+    }
+  }
+
+  function removeEntry(index: number) {
+    entries = entries.filter((_, i) => i !== index);
+    winner = null;
+  }
+
+  function spin() {
+    if (entries.length === 0 || isSpinning) return;
+    winner = null;
+    isSpinning = true;
+
+    const n = entries.length;
+    const randomIndex = Math.floor(Math.random() * n);
+    const segmentAngle = 360 / n;
+    const segmentCenterDeg = 90 + (randomIndex + 0.5) * segmentAngle;
+    let baseAngle = 270 - segmentCenterDeg;
+    if (baseAngle < 0) baseAngle += 360;
+    const fullSpins = 6 + Math.random() * 3;
+    const targetRotation = 360 * fullSpins + baseAngle;
+
+    const duration = 5000;
+    spinTransition = `transform ${duration}ms cubic-bezier(0.17, 0.67, 0.12, 0.99)`;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        rotation = rotation + targetRotation;
+      });
+    });
+    setTimeout(() => {
+      isSpinning = false;
+      winner = entries[randomIndex];
+      spinTransition = "";
+    }, duration);
+  }
+
+  function getSegmentPath(
+    cx: number,
+    cy: number,
+    r: number,
+    startAngleDeg: number,
+    endAngleDeg: number,
+  ): string {
+    const start = (startAngleDeg * Math.PI) / 180;
+    const end = (endAngleDeg * Math.PI) / 180;
+    const x1 = cx + r * Math.cos(start);
+    const y1 = cy + r * Math.sin(start);
+    const x2 = cx + r * Math.cos(end);
+    const y2 = cy + r * Math.sin(end);
+    const large = endAngleDeg - startAngleDeg > 180 ? 1 : 0;
+    return `M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2} Z`;
   }
 </script>
 
-<main class="container">
-  <h1>Welcome to Tauri + Svelte</h1>
+<main class="spin-wheel-app">
+  <h1>Spin My Wheel</h1>
+  <p class="subtitle">Add names and spin the wheel</p>
 
-  <div class="row">
-    <a href="https://vite.dev" target="_blank">
-      <img src="/vite.svg" class="logo vite" alt="Vite Logo" />
-    </a>
-    <a href="https://tauri.app" target="_blank">
-      <img src="/tauri.svg" class="logo tauri" alt="Tauri Logo" />
-    </a>
-    <a href="https://svelte.dev" target="_blank">
-      <img src="/svelte.svg" class="logo svelte-kit" alt="SvelteKit Logo" />
-    </a>
-  </div>
-  <p>Click on the Tauri, Vite, and SvelteKit logos to learn more.</p>
+  <section class="entries-section">
+    <div class="add-row">
+      <input
+        type="text"
+        placeholder="Enter a name..."
+        bind:value={newEntry}
+        onkeydown={(e) => e.key === "Enter" && addEntry()}
+        disabled={isSpinning}
+      />
+      <button
+        type="button"
+        onclick={addEntry}
+        disabled={isSpinning || !newEntry.trim()}
+      >
+        Add
+      </button>
+    </div>
+    <ul class="entries-list">
+      {#each entries as name, i}
+        <li>
+          <span>{name}</span>
+          <button
+            type="button"
+            class="remove"
+            onclick={() => removeEntry(i)}
+            disabled={isSpinning}
+            title="Remove"
+            aria-label="Remove"
+          >
+            ×
+          </button>
+        </li>
+      {/each}
+    </ul>
+    {#if entries.length === 0}
+      <p class="hint">Add at least one name, then spin.</p>
+    {/if}
+  </section>
 
-  <form class="row" onsubmit={greet}>
-    <input id="greet-input" placeholder="Enter a name..." bind:value={name} />
-    <button type="submit">Greet</button>
-  </form>
-  <p>{greetMsg}</p>
+  <section class="wheel-section">
+    <div class="wheel-wrapper">
+      {#if entries.length > 0}
+        <svg
+          class="wheel"
+          viewBox="0 0 320 320"
+          preserveAspectRatio="xMidYMid meet"
+          bind:this={wheelEl}
+          style="transform: rotate({rotation}deg); transition: {spinTransition}"
+          aria-hidden="true"
+        >
+          <g transform="translate(160, 160)">
+            {#each entries as name, i}
+              {@const n = entries.length}
+              {@const startDeg = 90 + (i * 360) / n}
+              {@const endDeg = 90 + ((i + 1) * 360) / n}
+              <path
+                d={getSegmentPath(0, 0, 140, startDeg, endDeg)}
+                fill={SEGMENT_COLORS[i % SEGMENT_COLORS.length]}
+                stroke="#fff"
+                stroke-width="1.5"
+              />
+              {@const midDeg = (startDeg + endDeg) / 2}
+              {@const labelR = 95}
+              {@const rad = (midDeg * Math.PI) / 180}
+              {@const tx = labelR * Math.cos(rad)}
+              {@const ty = labelR * Math.sin(rad)}
+              {@const textRot =
+                midDeg > 90 && midDeg < 270 ? midDeg + 180 : midDeg}
+              <text
+                x={tx}
+                y={ty}
+                text-anchor="middle"
+                dominant-baseline="middle"
+                transform="rotate({textRot} {tx} {ty})"
+                class="segment-label"
+              >
+                {name.length > 12 ? name.slice(0, 10) + "…" : name}
+              </text>
+            {/each}
+          </g>
+        </svg>
+      {:else}
+        <div class="wheel-placeholder">
+          <span>Wheel appears when you add names</span>
+        </div>
+      {/if}
+      <div class="pointer" aria-hidden="true"></div>
+    </div>
+
+    <button
+      type="button"
+      class="spin-btn"
+      onclick={spin}
+      disabled={entries.length === 0 || isSpinning}
+    >
+      {isSpinning ? "Spinning…" : "Spin!"}
+    </button>
+
+    {#if winner !== null && !isSpinning}
+      <div class="winner" role="alert">
+        <span class="winner-label">Winner:</span>
+        <span class="winner-name">{winner}</span>
+      </div>
+    {/if}
+  </section>
 </main>
-
-<style>
-.logo.vite:hover {
-  filter: drop-shadow(0 0 2em #747bff);
-}
-
-.logo.svelte-kit:hover {
-  filter: drop-shadow(0 0 2em #ff3e00);
-}
-
-:root {
-  font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
-  font-size: 16px;
-  line-height: 24px;
-  font-weight: 400;
-
-  color: #0f0f0f;
-  background-color: #f6f6f6;
-
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  -webkit-text-size-adjust: 100%;
-}
-
-.container {
-  margin: 0;
-  padding-top: 10vh;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  text-align: center;
-}
-
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: 0.75s;
-}
-
-.logo.tauri:hover {
-  filter: drop-shadow(0 0 2em #24c8db);
-}
-
-.row {
-  display: flex;
-  justify-content: center;
-}
-
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-
-a:hover {
-  color: #535bf2;
-}
-
-h1 {
-  text-align: center;
-}
-
-input,
-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  color: #0f0f0f;
-  background-color: #ffffff;
-  transition: border-color 0.25s;
-  box-shadow: 0 2px 2px rgba(0, 0, 0, 0.2);
-}
-
-button {
-  cursor: pointer;
-}
-
-button:hover {
-  border-color: #396cd8;
-}
-button:active {
-  border-color: #396cd8;
-  background-color: #e8e8e8;
-}
-
-input,
-button {
-  outline: none;
-}
-
-#greet-input {
-  margin-right: 5px;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    color: #f6f6f6;
-    background-color: #2f2f2f;
-  }
-
-  a:hover {
-    color: #24c8db;
-  }
-
-  input,
-  button {
-    color: #ffffff;
-    background-color: #0f0f0f98;
-  }
-  button:active {
-    background-color: #0f0f0f69;
-  }
-}
-
-</style>
