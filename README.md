@@ -1,7 +1,4 @@
-# Tauri + SvelteKit + TypeScript
+# Spin My Wheel
 
-This template should help get you started developing with Tauri, SvelteKit and TypeScript in Vite.
-
-## Recommended IDE Setup
-
-[VS Code](https://code.visualstudio.com/) + [Svelte](https://marketplace.visualstudio.com/items?itemName=svelte.svelte-vscode) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer).
+Another spin-the-wheel app. Nothing new, nothing fancy - a friend challenged me
+to build an app, so here it is.

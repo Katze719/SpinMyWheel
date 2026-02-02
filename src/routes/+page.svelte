@@ -21,6 +21,14 @@
   let rotation = $state(0);
   let spinTransition = $state("");
   let wheelEl = $state<SVGSVGElement | null>(null);
+  let confettiPieces = $state<Array<{ id: number; left: number; delay: number; duration: number; color: string; size: number; rot: number }>>([]);
+  let showWinnerEffect = $state(false);
+  let showRipple = $state(false);
+  let showSparkles = $state(false);
+  let showShine = $state(false);
+  let sparkles = $state<Array<{ id: number; x: number; y: number; dx: number; dy: number; delay: number }>>([]);
+
+  const CONFETTI_COLORS = ["#e21b3c", "#1368ce", "#d89e00", "#26890c", "#f0a32e", "#2d9d78", "#e8c547", "#c73659"];
 
   function addEntry() {
     const name = newEntry.trim();
@@ -61,6 +69,39 @@
       isSpinning = false;
       winner = entries[randomIndex];
       spinTransition = "";
+      showWinnerEffect = true;
+      showRipple = true;
+      showShine = true;
+      confettiPieces = Array.from({ length: 50 }, (_, i) => ({
+        id: i,
+        left: Math.random() * 100,
+        delay: Math.random() * 400,
+        duration: 2500 + Math.random() * 1500,
+        color: CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)],
+        size: 6 + Math.random() * 8,
+        rot: Math.random() * 720 - 360,
+      }));
+      sparkles = Array.from({ length: 24 }, (_, i) => {
+        const angle = (i / 24) * Math.PI * 2 + Math.random() * 0.5;
+        const dist = 80 + Math.random() * 120;
+        return {
+          id: i,
+          x: 50,
+          y: 45,
+          dx: Math.cos(angle) * dist,
+          dy: Math.sin(angle) * dist,
+          delay: Math.random() * 150,
+        };
+      });
+      showSparkles = true;
+      setTimeout(() => {
+        confettiPieces = [];
+      }, 4500);
+      setTimeout(() => {
+        showRipple = false;
+        showShine = false;
+        showSparkles = false;
+      }, 2000);
     }, duration);
   }
 
@@ -130,6 +171,7 @@
       {#if entries.length > 0}
         <svg
           class="wheel"
+          class:wheel-stop={winner !== null && !isSpinning}
           viewBox="0 0 320 320"
           preserveAspectRatio="xMidYMid meet"
           bind:this={wheelEl}
@@ -172,7 +214,17 @@
           <span>Wheel appears when you add names</span>
         </div>
       {/if}
-      <div class="pointer" aria-hidden="true"></div>
+      {#if showRipple && winner}
+        <div class="wheel-ripple" aria-hidden="true">
+          <span class="ripple-ring"></span>
+          <span class="ripple-ring"></span>
+          <span class="ripple-ring"></span>
+        </div>
+      {/if}
+      {#if showShine && winner}
+        <div class="wheel-shine" aria-hidden="true"></div>
+      {/if}
+      <div class="pointer" class:pointer-bounce={winner !== null && !isSpinning} aria-hidden="true"></div>
     </div>
 
     <button
@@ -185,10 +237,46 @@
     </button>
 
     {#if winner !== null && !isSpinning}
-      <div class="winner" role="alert">
+      <div class="winner" class:winner-pop={showWinnerEffect} role="alert">
         <span class="winner-label">Winner:</span>
         <span class="winner-name">{winner}</span>
       </div>
     {/if}
   </section>
+
+  {#if confettiPieces.length > 0}
+    <div class="confetti-overlay" aria-hidden="true">
+      {#each confettiPieces as piece (piece.id)}
+        <div
+          class="confetti-piece"
+          style="
+            left: {piece.left}%;
+            animation-delay: {piece.delay}ms;
+            animation-duration: {piece.duration}ms;
+            background: {piece.color};
+            width: {piece.size}px;
+            height: {piece.size * 0.6}px;
+            --rot: {piece.rot}deg;
+          "
+        ></div>
+      {/each}
+    </div>
+  {/if}
+
+  {#if showSparkles && sparkles.length > 0}
+    <div class="sparkles" aria-hidden="true">
+      {#each sparkles as s (s.id)}
+        <div
+          class="sparkle"
+          style="
+            left: {s.x}%;
+            top: {s.y}%;
+            --dx: {s.dx}px;
+            --dy: {s.dy}px;
+            animation-delay: {s.delay}ms;
+          "
+        ></div>
+      {/each}
+    </div>
+  {/if}
 </main>

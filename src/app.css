@@ -308,3 +308,183 @@ body {
     border-top-color: #f0f0f0;
   }
 }
+
+/* ---- Winner / spin-stop animations ---- */
+@keyframes wheel-stop {
+  0% { transform: scale(1); }
+  15% { transform: scale(1.08); }
+  30% { transform: scale(0.98); }
+  45% { transform: scale(1.03); }
+  100% { transform: scale(1); }
+}
+
+.spin-wheel-app .wheel.wheel-stop {
+  animation: wheel-stop 0.6s ease-out;
+}
+
+@keyframes pointer-bounce {
+  0%, 100% { transform: translateX(-50%) translateY(0); }
+  25% { transform: translateX(-50%) translateY(4px); }
+  50% { transform: translateX(-50%) translateY(-2px); }
+  75% { transform: translateX(-50%) translateY(2px); }
+}
+
+.spin-wheel-app .pointer.pointer-bounce {
+  animation: pointer-bounce 0.5s ease-out;
+}
+
+@keyframes winner-pop {
+  0% { opacity: 0; transform: scale(0.6); }
+  60% { transform: scale(1.08); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+.spin-wheel-app .winner.winner-pop {
+  animation: winner-pop 0.4s ease-out;
+}
+
+.spin-wheel-app .winner {
+  position: relative;
+  overflow: visible;
+}
+
+@keyframes winner-glow {
+  0%, 100% { box-shadow: var(--shadow), 0 0 20px rgba(45, 157, 120, 0.4); }
+  50% { box-shadow: var(--shadow), 0 0 32px rgba(45, 157, 120, 0.7); }
+}
+
+.spin-wheel-app .winner.winner-pop {
+  animation: winner-pop 0.4s ease-out, winner-glow 1.5s ease-in-out 0.4s 3;
+}
+
+/* ---- Confetti ---- */
+.spin-wheel-app .confetti-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 100;
+  overflow: hidden;
+}
+
+.spin-wheel-app .confetti-piece {
+  position: absolute;
+  top: -20px;
+  border-radius: 2px;
+  animation: confetti-fall linear forwards;
+  transform: rotate(var(--rot, 0deg));
+}
+
+@keyframes confetti-fall {
+  to {
+    top: 100vh;
+    transform: rotate(var(--rot, 0deg)) rotate(720deg);
+  }
+}
+
+/* ---- Ripple from wheel center when winner ---- */
+.spin-wheel-app .wheel-ripple {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.spin-wheel-app .wheel-ripple .ripple-ring {
+  position: absolute;
+  width: 20%;
+  height: 20%;
+  border-radius: 50%;
+  border: 3px solid rgba(45, 157, 120, 0.6);
+  animation: ripple-out 1s ease-out forwards;
+  opacity: 0;
+}
+
+.spin-wheel-app .wheel-ripple .ripple-ring:nth-child(2) { animation-delay: 0.15s; }
+.spin-wheel-app .wheel-ripple .ripple-ring:nth-child(3) { animation-delay: 0.3s; }
+.spin-wheel-app .wheel-ripple .ripple-ring:nth-child(4) { animation-delay: 0.45s; }
+
+@keyframes ripple-out {
+  0% {
+    width: 20%;
+    height: 20%;
+    opacity: 1;
+    border-width: 4px;
+  }
+  100% {
+    width: 120%;
+    height: 120%;
+    opacity: 0;
+    border-width: 1px;
+  }
+}
+
+/* ---- Sparkles burst ---- */
+.spin-wheel-app .sparkles {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 99;
+}
+
+.spin-wheel-app .sparkle {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  margin-left: -4px;
+  margin-top: -4px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #fff 30%, transparent 70%);
+  animation: sparkle-burst 0.7s ease-out forwards;
+  opacity: 0;
+}
+
+@keyframes sparkle-burst {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) scale(0);
+  }
+  10% {
+    opacity: 1;
+    transform: translate(var(--dx), var(--dy)) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--dx), var(--dy)) scale(0.3);
+  }
+}
+
+/* ---- Shine sweep on wheel after stop ---- */
+.spin-wheel-app .wheel-wrapper {
+  overflow: visible;
+}
+
+.spin-wheel-app .wheel-shine {
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.spin-wheel-app .wheel-shine::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 60%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.35),
+    transparent
+  );
+  animation: shine-sweep 0.8s ease-out 0.2s forwards;
+}
+
+@keyframes shine-sweep {
+  to { left: 100%; }
+}
