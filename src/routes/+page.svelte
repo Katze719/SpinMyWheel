@@ -28,6 +28,9 @@
   let showSparkles = $state(false);
   let showShine = $state(false);
   let sparkles = $state<Array<{ id: number; x: number; y: number; dx: number; dy: number; delay: number }>>([]);
+  let spinIntensity = $state(0);
+  let intensityIntervalId = 0;
+  let intensityRafId = 0;
 
   const CONFETTI_COLORS = ["#e21b3c", "#1368ce", "#d89e00", "#26890c", "#f0a32e", "#2d9d78", "#e8c547", "#c73659"];
 
@@ -49,13 +52,27 @@
     if (entries.length === 0 || isSpinning) return;
     winner = null;
     isSpinning = true;
+    if (intensityIntervalId) clearInterval(intensityIntervalId);
+    if (intensityRafId) cancelAnimationFrame(intensityRafId);
+    const startTime = Date.now();
+    intensityIntervalId = setInterval(() => {
+      const t = (Date.now() - startTime) / 5000;
+      spinIntensity = t >= 1 ? 1 : t;
+      if (t >= 1 && intensityIntervalId) {
+        clearInterval(intensityIntervalId);
+        intensityIntervalId = 0;
+      }
+    }, 50);
 
     const n = entries.length;
     const randomIndex = Math.floor(Math.random() * n);
     const segmentAngle = 360 / n;
+    // Segment i: Mitte bei 90 + (i+0.5)*segmentAngle (SVG: 0°=rechts, 90°=unten, 270°=oben/Norden).
     const segmentCenterDeg = 90 + (randomIndex + 0.5) * segmentAngle;
-    let baseAngle = 270 - segmentCenterDeg;
-    if (baseAngle < 0) baseAngle += 360;
+    // Pfeil oben = 270°. CSS rotate(R): positiv = Uhrzeigersinn → Punkt θ landet bei θ−R. Damit Mitte oben: segmentCenterDeg − R = 270 → R = segmentCenterDeg − 270.
+    const currentMod = ((rotation % 360) + 360) % 360;
+    const targetMod = (segmentCenterDeg - 270 + 360) % 360;
+    const baseAngle = (targetMod - currentMod + 360) % 360;
     const fullSpins = 6 + Math.random() * 3;
     const targetRotation = 360 * fullSpins + baseAngle;
 
@@ -67,16 +84,40 @@
       });
     });
     setTimeout(() => {
+      if (intensityIntervalId) {
+        clearInterval(intensityIntervalId);
+        intensityIntervalId = 0;
+      }
+      spinIntensity = 1;
       isSpinning = false;
-      const drawnWinner = entries[randomIndex];
+      spinTransition = "";
+      const R = ((rotation % 360) + 360) % 360;
+      const nE = entries.length;
+      const segAngle = 360 / nE;
+      const theta = (270 - R + 360) % 360;
+      const winnerIndex = (Math.floor((theta - 90) / segAngle) % nE + nE) % nE;
+      const drawnWinner = entries[winnerIndex];
       winner = drawnWinner;
       if (removeWinnerAfterSpin) {
         entries = entries.filter((name) => name !== drawnWinner);
       }
-      spinTransition = "";
+      // Normalisiere rotation für nächsten Spin (verhindert overflow bei vielen Spins)
+      rotation = R;
       showWinnerEffect = true;
       showRipple = true;
       showShine = true;
+      const fadeStart = Date.now();
+      function fadeIntensity() {
+        const elapsed = Date.now() - fadeStart;
+        const t = elapsed / 1500;
+        if (t >= 1) {
+          spinIntensity = 0;
+          return;
+        }
+        spinIntensity = 1 - t;
+        intensityRafId = requestAnimationFrame(fadeIntensity);
+      }
+      intensityRafId = requestAnimationFrame(fadeIntensity);
       confettiPieces = Array.from({ length: 50 }, (_, i) => ({
         id: i,
         left: Math.random() * 100,
@@ -128,7 +169,16 @@
   }
 </script>
 
-<main class="spin-wheel-app">
+<main class="spin-wheel-app" style="--spin-intensity: {spinIntensity}">
+  <div class="bg-ambient" aria-hidden="true">
+    <div class="bg-gradient"></div>
+    <div class="bg-blob bg-blob-1"></div>
+    <div class="bg-blob bg-blob-2"></div>
+    <div class="bg-blob bg-blob-3"></div>
+    <div class="bg-blob bg-blob-4"></div>
+    <div class="bg-blob bg-blob-5"></div>
+  </div>
+  <div class="app-content">
   <h1>Spin My Wheel</h1>
   <p class="subtitle">Add names and spin the wheel</p>
 
@@ -272,6 +322,7 @@
       </div>
     {/if}
   </section>
+  </div>
 
   {#if confettiPieces.length > 0}
     <div class="confetti-overlay" aria-hidden="true">
