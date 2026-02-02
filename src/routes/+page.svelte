@@ -16,6 +16,7 @@
 
   let entries = $state<string[]>([]);
   let newEntry = $state("");
+  let removeWinnerAfterSpin = $state(false);
   let isSpinning = $state(false);
   let winner = $state<string | null>(null);
   let rotation = $state(0);
@@ -67,7 +68,11 @@
     });
     setTimeout(() => {
       isSpinning = false;
-      winner = entries[randomIndex];
+      const drawnWinner = entries[randomIndex];
+      winner = drawnWinner;
+      if (removeWinnerAfterSpin) {
+        entries = entries.filter((name) => name !== drawnWinner);
+      }
       spinTransition = "";
       showWinnerEffect = true;
       showRipple = true;
@@ -161,34 +166,57 @@
         </li>
       {/each}
     </ul>
-    {#if entries.length === 0}
-      <p class="hint">Add at least one name, then spin.</p>
-    {/if}
+    <div class="option-row">
+      <span class="option-label">Remove drawn names</span>
+      <button
+        type="button"
+        class="toggle-btn"
+        class:on={removeWinnerAfterSpin}
+        class:off={!removeWinnerAfterSpin}
+        disabled={isSpinning}
+        onclick={() => (removeWinnerAfterSpin = !removeWinnerAfterSpin)}
+        aria-pressed={removeWinnerAfterSpin}
+      >
+        <span class="toggle-off">Off</span>
+        <span class="toggle-on">On</span>
+      </button>
+    </div>
   </section>
 
   <section class="wheel-section">
     <div class="wheel-wrapper">
       {#if entries.length > 0}
-        <svg
-          class="wheel"
-          class:wheel-stop={winner !== null && !isSpinning}
-          viewBox="0 0 320 320"
-          preserveAspectRatio="xMidYMid meet"
-          bind:this={wheelEl}
-          style="transform: rotate({rotation}deg); transition: {spinTransition}"
-          aria-hidden="true"
-        >
+        <div class="wheel-inner" class:wheel-stop={winner !== null && !isSpinning}>
+          <svg
+            class="wheel"
+            viewBox="0 0 320 320"
+            preserveAspectRatio="xMidYMid meet"
+            bind:this={wheelEl}
+            style="transform: rotate({rotation}deg); transition: {spinTransition}"
+            aria-hidden="true"
+          >
           <g transform="translate(160, 160)">
             {#each entries as name, i}
               {@const n = entries.length}
               {@const startDeg = 90 + (i * 360) / n}
               {@const endDeg = 90 + ((i + 1) * 360) / n}
-              <path
-                d={getSegmentPath(0, 0, 140, startDeg, endDeg)}
-                fill={SEGMENT_COLORS[i % SEGMENT_COLORS.length]}
-                stroke="#fff"
-                stroke-width="1.5"
-              />
+              {#if n === 1}
+                <circle
+                  cx="0"
+                  cy="0"
+                  r="140"
+                  fill={SEGMENT_COLORS[i % SEGMENT_COLORS.length]}
+                  stroke="#fff"
+                  stroke-width="1.5"
+                />
+              {:else}
+                <path
+                  d={getSegmentPath(0, 0, 140, startDeg, endDeg)}
+                  fill={SEGMENT_COLORS[i % SEGMENT_COLORS.length]}
+                  stroke="#fff"
+                  stroke-width="1.5"
+                />
+              {/if}
               {@const midDeg = (startDeg + endDeg) / 2}
               {@const labelR = 95}
               {@const rad = (midDeg * Math.PI) / 180}
@@ -209,6 +237,7 @@
             {/each}
           </g>
         </svg>
+        </div>
       {:else}
         <div class="wheel-placeholder">
           <span>Wheel appears when you add names</span>
