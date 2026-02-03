@@ -156,6 +156,7 @@ jobs:
           java-version: "17"
       - run: pnpm install
       - run: rustup target add aarch64-linux-android x86_64-linux-android
+      - run: pnpm tauri android init --ci
       - run: pnpm tauri android build -- --target aarch64 x86_64 --apk=true --split-per-abi
       - name: Upload APKs to release
         uses: softprops/action-gh-release@v2
