@@ -156,7 +156,7 @@ jobs:
           java-version: "17"
       - run: pnpm install
       - run: rustup target add aarch64-linux-android x86_64-linux-android
-      - run: pnpm tauri android build --target aarch64 x86_64 --apk true --split-per-abi
+      - run: pnpm tauri android build -- --target aarch64 x86_64 --apk=true --split-per-abi
       - name: Upload APKs to release
         uses: softprops/action-gh-release@v2
         with:
@@ -166,7 +166,7 @@ jobs:
             src-tauri/gen/android/app/build/outputs/apk/x86_64/release/*.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - run: pnpm tauri android build --target aarch64 x86_64 --aab true
+      - run: pnpm tauri android build -- --target aarch64 x86_64 --aab=true
       - name: Upload AAB to release
         uses: softprops/action-gh-release@v2
         with:
