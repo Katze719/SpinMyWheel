@@ -169,52 +169,16 @@ jobs:
       - name: Init Android project
         run: pnpm tauri android init --ci
   
-      - name: Setup Android signing (Tauri method)
+      - name: Setup Android signing
         run: |
-          cd src-tauri/gen/android
-          
           # Decode keystore from repo
-          base64 -d ${{ github.workspace }}/.github/keystore.base64 > $RUNNER_TEMP/release.keystore
+          base64 -d .github/keystore.base64 > $RUNNER_TEMP/release.keystore
           
-          # Create keystore.properties as per Tauri docs
-          cat > keystore.properties <<EOF
-          keyAlias=spin-my-wheel
-          password=spinmywheel2025
-          storeFile=$RUNNER_TEMP/release.keystore
-          EOF
-  
-      - name: Create signing config (Groovy)
-        run: |
-          cd src-tauri/gen/android/app
+          # Copy keystore.properties from repo
+          cp .github/keystore.properties src-tauri/gen/android/keystore.properties
           
-          # Create a separate Groovy gradle file for signing (easier than patching Kotlin DSL)
-          cat > signing.gradle <<'EOF'
-          def keystorePropertiesFile = rootProject.file("keystore.properties")
-          def keystoreProperties = new Properties()
-          if (keystorePropertiesFile.exists()) {
-              keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
-              
-              android {
-                  signingConfigs {
-                      release {
-                          keyAlias keystoreProperties['keyAlias']
-                          keyPassword keystoreProperties['password']
-                          storeFile file(keystoreProperties['storeFile'])
-                          storePassword keystoreProperties['password']
-                      }
-                  }
-                  buildTypes {
-                      release {
-                          signingConfig signingConfigs.release
-                      }
-                  }
-              }
-          }
-          EOF
-          
-          # Apply the signing config
-          echo "" >> build.gradle.kts
-          echo "apply from: 'signing.gradle'" >> build.gradle.kts
+          # Append signing config from repo to build.gradle.kts
+          cat .github/build.gradle.kts.patch >> src-tauri/gen/android/app/build.gradle.kts
   
       - name: Build signed APKs + AABs (release)
         run: pnpm tauri android build
