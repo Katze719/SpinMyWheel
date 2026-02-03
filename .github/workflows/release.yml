@@ -169,7 +169,54 @@ jobs:
       - name: Init Android project
         run: pnpm tauri android init --ci
   
-      - name: Build APKs + AABs (split per ABI)
+      - name: Generate keystore for signing
+        run: |
+          keytool -genkey -v \
+            -keystore /tmp/release.keystore \
+            -alias spin-my-wheel \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -storepass android \
+            -keypass android \
+            -dname "CN=SpinMyWheel,OU=Dev,O=Local,L=Local,ST=Local,C=DE"
+  
+      - name: Setup signing configuration
+        run: |
+          echo "storeFile=/tmp/release.keystore" >> src-tauri/gen/android/key.properties
+          echo "storePassword=android" >> src-tauri/gen/android/key.properties
+          echo "keyAlias=spin-my-wheel" >> src-tauri/gen/android/key.properties
+          echo "keyPassword=android" >> src-tauri/gen/android/key.properties
+  
+      - name: Configure signing in build.gradle
+        run: |
+          cat >> src-tauri/gen/android/app/build.gradle.kts <<'EOF'
+          
+          // APK/AAB Signing Configuration
+          android {
+              signingConfigs {
+                  create("release") {
+                      val keystorePropertiesFile = rootProject.file("key.properties")
+                      if (keystorePropertiesFile.exists()) {
+                          val keystoreProperties = java.util.Properties()
+                          keystoreProperties.load(java.io.FileInputStream(keystorePropertiesFile))
+                          
+                          storeFile = file(keystoreProperties["storeFile"] as String)
+                          storePassword = keystoreProperties["storePassword"] as String
+                          keyAlias = keystoreProperties["keyAlias"] as String
+                          keyPassword = keystoreProperties["keyPassword"] as String
+                      }
+                  }
+              }
+              buildTypes {
+                  getByName("release") {
+                      signingConfig = signingConfigs.getByName("release")
+                  }
+              }
+          }
+          EOF
+  
+      - name: Build signed APKs + AABs (split per ABI)
         run: pnpm tauri android build
   
       - name: Upload Android artifacts to release
