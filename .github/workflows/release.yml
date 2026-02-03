@@ -169,55 +169,54 @@ jobs:
       - name: Init Android project
         run: pnpm tauri android init --ci
   
-      - name: Generate keystore for signing
+      - name: Setup Android signing (Tauri method)
         run: |
-          keytool -genkey -v \
-            -keystore /tmp/release.keystore \
-            -alias spin-my-wheel \
-            -keyalg RSA \
-            -keysize 2048 \
-            -validity 10000 \
-            -storepass android \
-            -keypass android \
-            -dname "CN=SpinMyWheel,OU=Dev,O=Local,L=Local,ST=Local,C=DE"
-  
-      - name: Setup signing configuration
-        run: |
-          echo "storeFile=/tmp/release.keystore" >> src-tauri/gen/android/key.properties
-          echo "storePassword=android" >> src-tauri/gen/android/key.properties
-          echo "keyAlias=spin-my-wheel" >> src-tauri/gen/android/key.properties
-          echo "keyPassword=android" >> src-tauri/gen/android/key.properties
-  
-      - name: Configure signing in build.gradle
-        run: |
-          cat >> src-tauri/gen/android/app/build.gradle.kts <<'EOF'
+          cd src-tauri/gen/android
           
-          // APK/AAB Signing Configuration
-          android.signingConfigs {
-              create("release") {
-                  val keystorePropertiesFile = rootProject.file("key.properties")
-                  if (keystorePropertiesFile.exists()) {
-                      val keystoreProperties = java.util.Properties()
-                      java.io.FileInputStream(keystorePropertiesFile).use { fis ->
-                          keystoreProperties.load(fis)
+          # Decode keystore from repo
+          base64 -d ${{ github.workspace }}/.github/keystore.base64 > $RUNNER_TEMP/release.keystore
+          
+          # Create keystore.properties as per Tauri docs
+          cat > keystore.properties <<EOF
+          keyAlias=spin-my-wheel
+          password=spinmywheel2025
+          storeFile=$RUNNER_TEMP/release.keystore
+          EOF
+  
+      - name: Create signing config (Groovy)
+        run: |
+          cd src-tauri/gen/android/app
+          
+          # Create a separate Groovy gradle file for signing (easier than patching Kotlin DSL)
+          cat > signing.gradle <<'EOF'
+          def keystorePropertiesFile = rootProject.file("keystore.properties")
+          def keystoreProperties = new Properties()
+          if (keystorePropertiesFile.exists()) {
+              keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+              
+              android {
+                  signingConfigs {
+                      release {
+                          keyAlias keystoreProperties['keyAlias']
+                          keyPassword keystoreProperties['password']
+                          storeFile file(keystoreProperties['storeFile'])
+                          storePassword keystoreProperties['password']
                       }
-                      
-                      storeFile = file(keystoreProperties.getProperty("storeFile"))
-                      storePassword = keystoreProperties.getProperty("storePassword")
-                      keyAlias = keystoreProperties.getProperty("keyAlias")
-                      keyPassword = keystoreProperties.getProperty("keyPassword")
+                  }
+                  buildTypes {
+                      release {
+                          signingConfig signingConfigs.release
+                      }
                   }
               }
           }
-          
-          android.buildTypes {
-              getByName("release") {
-                  signingConfig = android.signingConfigs.getByName("release")
-              }
-          }
           EOF
+          
+          # Apply the signing config
+          echo "" >> build.gradle.kts
+          echo "apply from: 'signing.gradle'" >> build.gradle.kts
   
-      - name: Build signed APKs + AABs (split per ABI)
+      - name: Build signed APKs + AABs (release)
         run: pnpm tauri android build
   
       - name: Upload Android artifacts to release
