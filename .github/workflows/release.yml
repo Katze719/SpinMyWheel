@@ -171,14 +171,16 @@ jobs:
   
       - name: Setup Android signing
         run: |
-          # Decode keystore from repo
-          base64 -d .github/keystore.base64 > $RUNNER_TEMP/release.keystore
-          
-          # Copy keystore.properties from repo
-          cp .github/keystore.properties src-tauri/gen/android/keystore.properties
-          
-          # Append signing config from repo to build.gradle.kts
-          cat .github/build.gradle.kts.patch >> src-tauri/gen/android/app/build.gradle.kts
+          cd src-tauri/gen/android
+          echo "keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}" > keystore.properties
+          echo "password=${{ secrets.ANDROID_KEY_PASSWORD }}" >> keystore.properties
+          base64 -d <<< "${{ secrets.ANDROID_KEY_BASE64 }}" > $RUNNER_TEMP/keystore.jks
+          echo "storeFile=$RUNNER_TEMP/keystore.jks" >> keystore.properties
+      
+      - name: Configure Gradle signing
+        run: |
+          chmod +x .github/patch-build-gradle.sh
+          .github/patch-build-gradle.sh src-tauri/gen/android/app/build.gradle.kts
   
       - name: Build signed APKs + AABs (release)
         run: pnpm tauri android build
